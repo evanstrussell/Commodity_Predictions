@@ -10,7 +10,7 @@ st.set_page_config(page_title="Commodity Classifier", layout="wide")
 
 @st.cache_data
 def load_excel(file):
-    ref = pd.read_excel(file, sheet_name="Last Price Paid", skiprows=5, usecols=["DESCRIPTION", "New Commodity"])
+    ref = pd.read_excel(file, sheet_name="Last Price Paid", usecols=["DESCRIPTION", "New Commodity"])
     mod = pd.read_excel(file, sheet_name="Grainger", usecols=["Material Description", "Commodity"])
     return ref, mod
 
@@ -68,35 +68,44 @@ if uploaded_file:
     model_df_not_found['Predicted Commodity'] = preds
     model_df_not_found['Confidence'] = confs
 
+    threshold = model_df_not_found["Confidence"].quantile(0.25)
+    low_conf_df = model_df_not_found[model_df_not_found["Confidence"] <= threshold]
+
+    sample = low_conf_df.sample(n=15, random_state=st.session_state.iteration)
+    #sample = model_df_not_found.sample(n=15, random_state=st.session_state.iteration)
+
     st.subheader("🔍 Review Sample Predictions")
 
-    sample = model_df_not_found.sample(n=min(10, len(model_df_not_found)), random_state=st.session_state.iteration).copy()
-    sample.reset_index(drop=True, inplace=True)
+    with st.form("corrections_form"):
+        updated_rows = []
+        all_correct = True
 
-    all_correct = True
-    updated_rows = []
+        for i, row in sample.iterrows():
+            st.markdown(f"**Row {i+1}:**")
+            st.write(f"**Description:** {row['Material Description']}")
+            st.write(f"**Predicted:** {row['Predicted Commodity']} | **Confidence:** {round(row['Confidence']*100, 2)}%")
 
-    for i, row in sample.iterrows():
-        st.markdown(f"**Row {i+1}:**")
-        st.write(f"**Description:** {row['Material Description']}")
-        st.write(f"**Predicted:** `{row['Predicted Commodity']}` | **Confidence:** `{round(row['Confidence']*100, 2)}%`")
+            override = st.selectbox(
+                f"Confirm or correct the commodity for Row {i+1}",
+                options=[row['Predicted Commodity']] + sorted(reference_df['New Commodity'].dropna().unique()),
+                key=f"select_{i}"
+            )
 
-        override = st.selectbox(f"Confirm or correct the commodity for Row {i+1}",
-                                options=[row['Predicted Commodity']] + sorted(reference_df['New Commodity'].dropna().unique()),
-                                key=f"select_{i}")
+            corrected = override != row['Predicted Commodity']
+            if corrected:
+                all_correct = False
 
-        corrected = override != row['Predicted Commodity']
-        if corrected:
-            all_correct = False
+            updated_rows.append({
+                'Material Description': row['Material Description'],
+                'Original Prediction': row['Predicted Commodity'],
+                'Corrected Commodity': override,
+                'Confidence': row['Confidence']
+            })
 
-        updated_rows.append({
-            'Material Description': row['Material Description'],
-            'Original Prediction': row['Predicted Commodity'],
-            'Corrected Commodity': override,
-            'Confidence': row['Confidence']
-        })
+        # Submit button *inside* the form
+        submitted = st.form_submit_button("✅ Submit Corrections & Retrain")
 
-    if st.button("✅ Submit Corrections & Retrain"):
+    if submitted:
         new_feedback = pd.DataFrame(updated_rows)
         st.session_state.feedback_log = pd.concat([st.session_state.feedback_log, new_feedback], ignore_index=True)
 
@@ -114,7 +123,11 @@ if uploaded_file:
         st.session_state.prev_all_correct = all_correct
         st.session_state.iteration += 1
 
-        st.experimental_rerun()
+        st.rerun()
+
+    if st.button("🛑 End Training Early"):
+        st.session_state.stop_training = True
+        st.rerun()
 
     if st.session_state.stop_training:
         st.success("✅ No corrections for two rounds — model loop complete!")
@@ -134,4 +147,3 @@ if uploaded_file:
 
         final_updated = model_df_not_found[['Material Description', 'Final Prediction', 'Final Confidence']]
         st.download_button("📥 Final Updated Predictions", data=final_updated.to_csv(index=False), file_name="final_predictions.csv")
-
