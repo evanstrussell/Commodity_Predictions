@@ -11,7 +11,7 @@ st.set_page_config(page_title="Commodity Classifier", layout="wide")
 @st.cache_data
 def load_excel(file):
     ref = pd.read_excel(file, sheet_name="Last Price Paid", usecols=["DESCRIPTION", "New Commodity"])
-    mod = pd.read_excel(file, sheet_name="Grainger", usecols=["Material Description", "Commodity"])
+    mod = pd.read_excel(file, sheet_name="Missing Values", usecols=["Material Description", "Commodity"])
     return ref, mod
 
 def preprocess(text):
