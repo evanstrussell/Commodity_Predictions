@@ -1,8 +1,6 @@
-# 🎈 Blank app template
+# 🎈 Commodity Predictions
 
-A simple Streamlit app template for you to modify!
-
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
+This project was designed for aiding the allocation and assignment of material descriptions to pre-defined commodity categories. The model uses structured logistic regression combined with TF-IDF to determine word frequencies and make predictions for applying classifications to unique descriptions.
 
 ### How to run it on your own machine
 
@@ -17,3 +15,5 @@ A simple Streamlit app template for you to modify!
    ```
    $ streamlit run streamlit_app.py
    ```
+
+   
